@@ -1,0 +1,13 @@
+## map usage
+
+Essentially, the grid data is in row-major index format - which means if the width of the row (which you can get from map.info.width) is 1000,
+
+map.data[0] = [0,0]
+
+map.data[356] = [356,0]
+
+map.data[1000]= [0,1]
+
+map.data[72653]=[653,72]
+
+map.data[ i ]=[(i%width),(int)(i/width)]
