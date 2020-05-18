@@ -90,7 +90,7 @@ class RRT():
         #time1 = time.time()
         while self.max_iter > 0:
             new_node = self.generate_random_node()
-            #print((new_node.x, new_node.y))
+            print((new_node.x, new_node.y))
             for node in self.nodes:
                 node.distance = distance(node, new_node)
             self.nodes = sorted(self.nodes, key=lambda node: node.distance)
@@ -116,6 +116,7 @@ class RRT():
                 print('Reached')
                 break
             self.max_iter -= 1
+        
             #print((new_node.x, new_node.y))
     def plot_points(self):
         plt.scatter([p.x for p in self.nodes], [p.y for p in self.nodes], color='red')
@@ -125,13 +126,16 @@ class RRT():
 
     def generate_random_node(self):
         if np.random.random_sample() > self.goal_sample_rate:
-            new_node = Node(random.random() * 10, random.random()*10)
+            new_node = Node(random.random() * 10, random.random() * 10)
+            print(new_node.x, new_node.y)
         else:
             new_node = self.goal
         return new_node
     
     def get_path(self, start, goal, obstacle_list):
-        self._start_tree(start, goal)
+        #print(obstacle_list)
+        self.sample = [[-1 + start.x, 1 + goal.x], [-1 + start.y, 1 + goal.y]]
+        self._start_tree(start, goal, obstacle_list)
         path = [self.nodes[-1]]
         current = self.nodes[-1]
         while True:
@@ -142,7 +146,7 @@ class RRT():
                 path.append(current.parent)
                 current = current.parent
         path_planned = [(p.x, p.y, 0) for p in path]
-        return path_planned
+        return path_planned[::-1]
 
 
     
