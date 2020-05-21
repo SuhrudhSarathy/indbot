@@ -1,10 +1,11 @@
-
+'''
+    Basic Implementaion of RRT without any Path Optimiser
+'''
 import matplotlib.pyplot as plt 
 import numpy as np 
 from shapely.geometry import Point, LineString, Polygon
 import random
 import time
-
 
 
 def plot_obstacle(obstacle):
@@ -74,8 +75,15 @@ class Node():
         self.parent = None
         self.distance = 0
 class RRT():
+
+    '''
+        Main RRT Class used for path planning
+        Args:
+            threshold: A threshold for deciding the delta parameter
+            max_iter : Maximum number for iterations
+    '''
     def __init__(self, threshold, max_iter):
-        
+
         self.threshold = threshold
         self.nodes = []
         self.is_reached = False
@@ -90,7 +98,7 @@ class RRT():
         #time1 = time.time()
         while self.max_iter > 0:
             new_node = self.generate_random_node()
-            print((new_node.x, new_node.y))
+            
             for node in self.nodes:
                 node.distance = distance(node, new_node)
             self.nodes = sorted(self.nodes, key=lambda node: node.distance)
@@ -112,12 +120,11 @@ class RRT():
                     pass
             if new_node.x == self.goal.x and new_node.y == self.goal.y:
                 self.is_reached == True
-                print(self.max_iter)
-                print('Reached')
+                print('-'*30 + 'Reached' + '-'*30)
                 break
             self.max_iter -= 1
         
-            #print((new_node.x, new_node.y))
+
     def plot_points(self):
         plt.scatter([p.x for p in self.nodes], [p.y for p in self.nodes], color='red')
         for node in self.nodes :
@@ -127,7 +134,7 @@ class RRT():
     def generate_random_node(self):
         if np.random.random_sample() > self.goal_sample_rate:
             new_node = Node(random.random() * 10, random.random() * 10)
-            print(new_node.x, new_node.y)
+            #print(new_node.x, new_node.y)
         else:
             new_node = self.goal
         return new_node
