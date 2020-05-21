@@ -1,0 +1,6 @@
+<launch>
+
+    <node name="dynamic_manager" pkg="indbot_controls" type="dynamic_manager.py" output="screen"/>
+    <node name="turtlebot_controller" pkg="indbot_controls" type="turtlebot_controller.py" output="screen"/>
+    
+</launch>
