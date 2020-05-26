@@ -46,7 +46,10 @@ def obstacles():
 
 
 def collisionCheck(point1, point2, obstacle_list):
-    line = LineString([(point1.x, point1.y), (point2.x, point2.y)])
+    try:
+        line = LineString([(point1.x, point1.y), (point2.x, point2.y)])
+    except:
+        line = LineString([(point1[0], point1[1]), (point2[0], point2[1])])
     intersection = 0
     for obstacle in obstacle_list:
         if line.intersects(obstacle):
@@ -90,7 +93,14 @@ class RRT():
         self.max_iter = max_iter
         self.goal_sample_rate = 0.1
 
-    def _start_tree(self,start, goal, obstacle_list = [Point(-100, -100)]):
+    def reset(self, max_iter):
+        self.nodes = []
+        self.is_reached = False
+        self.max_iter = max_iter
+        self.goal_sample_rate = 0.1
+
+    def _start_tree(self, start, goal, obstacle_list, max_iter):
+        self.reset(max_iter)
         self.start = start
         self.goal = goal
         self.nodes.append(self.start)
@@ -133,20 +143,20 @@ class RRT():
 
     def generate_random_node(self):
         if np.random.random_sample() > self.goal_sample_rate:
-            new_node = Node(random.random() * 10, random.random() * 10)
-            #print(new_node.x, new_node.y)
+            x = np.random.uniform(-1 + self.start.x, self.goal.x + 1)
+            y = np.random.uniform(-1 + self.start.y, self.goal.y + 1)
+            new_node = Node(x, y)
         else:
             new_node = self.goal
         return new_node
     
-    def get_path(self, start, goal, obstacle_list):
+    def get_path(self, start, goal, obstacle_list, max_iter):
         #print(obstacle_list)
-        self.sample = [[-1 + start.x, 1 + goal.x], [-1 + start.y, 1 + goal.y]]
-        self._start_tree(start, goal, obstacle_list)
+        self._start_tree(start, goal, obstacle_list, max_iter)
         path = [self.nodes[-1]]
         current = self.nodes[-1]
-        while True:
-            if current.x == self.start.x and current.y == self.start.y:
+        while current.parent != None:
+            if current.x == start.x and current.y == start.y:
                 path.append(current)
                 break
             else:
