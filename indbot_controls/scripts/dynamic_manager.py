@@ -3,9 +3,11 @@
 try :
     import rospy 
     from nav_msgs.msg import Odometry, Path
-    from geometry_msgs.msg import Point, PoseStamped, Quaternion, Pose, Point32
+    from geometry_msgs.msg import Point, PoseStamped, Quaternion, Pose, Point32, PointStamped
     from sensor_msgs.msg import LaserScan
     from std_msgs.msg import Header
+    import tf2_ros
+    import tf2_geometry_msgs
     
 except:
     raise ImportError
@@ -43,13 +45,23 @@ class Manager():
         self.path_planner = RRT(1, 10000)
         self.path_points = []
         
+        #Initialise transform listener
+        self.tfBuffer = tf2_ros.Buffer()
+        self.listener = tf2_ros.TransformListener(self.tfBuffer)
+
+        self.rate = rospy.Rate(10)
         
     def __odom_update(self, msg):
         '''
             Callback function for odometry
         '''
-        self.position = msg.pose.pose.position
+        self.position = Point(msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z)
 
+        # Obtain Transform
+        try:
+            self.transform = self.tfBuffer.lookup_transform('odom', 'base_footprint', rospy.Time())
+        except:
+            rospy.logwarn('Transform not obtained')
         # call get path function
         self.get_path()
 
@@ -69,27 +81,38 @@ class Manager():
     def get_path(self):
         '''
             Funtions that checks necessary conditions and calls path
-            Note:
-                Future Updates: Dynamic Collision Checking
         '''
         try:
             if abs(self.position.x - self.goal.x) < 0.1 and abs(self.position.y - self.goal.y) < 0.1:
                 self.not_reached = False
         except:
             pass
-        if len(self.path_points) == 0 and self.not_reached:
+        if (len(self.path_points) == 0 and self.not_reached):
             try:
                 rospy.loginfo('Path Planner Called')
-                self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings)
+                self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 10000)
+                rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
                 self.publish_path()
+                
             except Exception as err:
                 rospy.logerr(err)
-            
+        elif self.collision():
+            try:
+                rospy.loginfo('Path Planner Called')
+                self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 10000)
+                rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+                self.publish_path()
+                
+            except Exception as err:
+                rospy.logerr(err)
+        
         elif self.not_reached:
             self.publish_path()
+            
         else :
             self.publish_path()
             rospy.loginfo("-"*10 + 'End-Reached' + '-'*10)
+            
         
 
     def publish_path(self):
@@ -153,7 +176,25 @@ class Manager():
         '''
         x = r * np.cos(theta)
         y = r * np.sin(theta)
-        return Point32(x, y, 0)
+        point = self.transformedPoint(Point(x, y, 0))
+        #print(point.x, point.y)
+        return point
+
+    ###----------------------------------------Dealing with transforms--------------------------------------###
+    def transformedPoint(self, point):
+        pointStamped = PointStamped(header = Header(frame_id = 'base_footprint'), point = Point(point.x, point.y, 0))
+        pointTransformed = tf2_geometry_msgs.do_transform_point(pointStamped, self.transform)
+        return pointTransformed.point    
+
+    ###--------------------------------------Dynamic Checking--------------------------------------------------###
+    def collision(self):
+        #print('checking collision')
+        for line in self.linestrings:
+            if len(self.path_points) >=2:
+                if LineString(self.path_points).intersects(line):
+                    return True
+        else:
+            return False
 
     
 
@@ -167,7 +208,7 @@ if __name__ == '__main__':
     manager = Manager()
     
     manager.start = Point(0, 0, 0)
-    manager.goal = Point(2, 2, 0)
+    manager.goal = Point(5, 5, 0)
     rospy.loginfo('Manager Initiated')
     rospy.spin()
 
