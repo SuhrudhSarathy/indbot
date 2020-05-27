@@ -2,7 +2,7 @@
 
 import rospy
 from nav_msgs.msg import Odometry, Path
-from geometry_msgs.msg import Twist, Point, Quaternion
+from geometry_msgs.msg import Twist, Point, Quaternion, PoseStamped
 from tf.transformations import euler_from_quaternion as efq 
 
 import numpy as np 
@@ -14,7 +14,7 @@ Gains = namedtuple('Gains', ['kp', 'kd', 'ki'])
 DISTMIN = 0.05
 MAXX = 0.22
 MAXANG = 2
-DIST_THRES = 0.2
+DIST_THRES = 0.1
 
 
 class Controller():
@@ -35,11 +35,13 @@ class Controller():
 
         self.goal = None
         self.goal_reached = False
+        self.new_goal_recieved = False
         
         # Initialize subs and pubs
         self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.path_sub = rospy.Subscriber('/path', Path, self.__path_sub)
         self.odom_sub = rospy.Subscriber('/odom', Odometry, self.__odom_sub)
+        
 
         # Parameters for PID tuning
         self.x_gain = Gains(1, 0, 0)
@@ -65,15 +67,14 @@ class Controller():
 
         # Run the set goal function
         self._set_goal()
-
     def _set_goal(self):
         '''
             Function that sets goal for controller to move to 
             i.e. the next way point 
         '''
         try:
+
             self.final_goal = self.path_points[-1]
-            print(np.sqrt((self.final_goal.x - self.position.x)**2 + (self.position.y - self.final_goal.y)**2))
             if np.sqrt((self.final_goal.x - self.position.x)**2 + (self.position.y - self.final_goal.y)**2) < 0.1:
                 rospy.loginfo('final_goal_reached')
                 self.goal_reached = True

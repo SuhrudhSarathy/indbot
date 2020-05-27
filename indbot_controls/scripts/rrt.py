@@ -107,6 +107,7 @@ class RRT():
         self.obstacle_list = obstacle_list
         #time1 = time.time()
         while self.max_iter > 0:
+            print('planning', self.max_iter)
             new_node = self.generate_random_node()
             
             for node in self.nodes:
@@ -143,8 +144,8 @@ class RRT():
 
     def generate_random_node(self):
         if np.random.random_sample() > self.goal_sample_rate:
-            x = np.random.uniform(-1 + self.start.x, self.goal.x + 1)
-            y = np.random.uniform(-1 + self.start.y, self.goal.y + 1)
+            x = np.random.uniform(-5, 10)
+            y = np.random.uniform(-5, 10)
             new_node = Node(x, y)
         else:
             new_node = self.goal
@@ -155,6 +156,7 @@ class RRT():
         self._start_tree(start, goal, obstacle_list, max_iter)
         path = [self.nodes[-1]]
         current = self.nodes[-1]
+        print(len(self.nodes))
         while current.parent != None:
             if current.x == start.x and current.y == start.y:
                 path.append(current)
@@ -164,7 +166,9 @@ class RRT():
                 current = current.parent
         path_planned = [(p.x, p.y, 0) for p in path]
         return path_planned[::-1]
-
+    
+    def path_optimiser(self, path, obstacles):
+        pass
 
     
     

@@ -32,17 +32,20 @@ class Manager():
         self.start = Point()
         self.goal = Point()
         self.scan = LaserScan()
+        self.goal_recieved = False
+        
 
         #Publishers and Subscribers
         self.path_pub = rospy.Publisher('/path', Path, queue_size=10)
         self.odom_sub = rospy.Subscriber('/odom', Odometry, self.__odom_update)      
-        self.scan_pub = rospy.Subscriber('/scan', LaserScan, self.laser_sub)    
+        self.scan_pub = rospy.Subscriber('/scan', LaserScan, self.__laser_sub)
+        self.goal_sub = rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.__goal_sub)    
 
         #Flag to check if final goal is reached
         self.not_reached = True
 
         #Initialising path planner
-        self.path_planner = RRT(1, 10000)
+        self.path_planner = RRT(1, 1000)
         self.path_points = []
         
         #Initialise transform listener
@@ -65,7 +68,7 @@ class Manager():
         # call get path function
         self.get_path()
 
-    def laser_sub(self, msg):
+    def __laser_sub(self, msg):
         '''
             Callback function for laserScan
         '''
@@ -76,43 +79,58 @@ class Manager():
 
         self.convert_to_points()
         self.publish_polygons()
-        
+    
+    def __goal_sub(self, msg):
+        '''
+            Callback to recieve goal from RVIZ
+        '''
+        self.goal = Point(msg.pose.position.x, msg.pose.position.y, 0)
+        self.goal_recieved = True
+        try:
+            rospy.loginfo('Path Planner Called from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+            self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 1000)
+            rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+            self.publish_path()
+                    
+        except Exception as err:
+            rospy.logerr(err)
+
 ###---------------------------------------Navigation Functions----------------------------------------###       
     def get_path(self):
         '''
             Funtions that checks necessary conditions and calls path
         '''
-        try:
-            if abs(self.position.x - self.goal.x) < 0.1 and abs(self.position.y - self.goal.y) < 0.1:
-                self.not_reached = False
-        except:
-            pass
-        if (len(self.path_points) == 0 and self.not_reached):
+        if self.goal_recieved:
             try:
-                rospy.loginfo('Path Planner Called')
-                self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 10000)
-                rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+                if abs(self.position.x - self.goal.x) < 0.1 and abs(self.position.y - self.goal.y) < 0.1:
+                    self.not_reached = False
+            except:
+                pass
+            if (len(self.path_points) == 0 and self.not_reached):
+                try:
+                    rospy.loginfo('Path Planner Called from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+                    self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 1000)
+                    rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+                    self.publish_path()
+                    
+                except Exception as err:
+                    rospy.logerr(err)
+            elif self.collision():
+                try:
+                    rospy.loginfo('Path Planner Called')
+                    self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 1000)
+                    rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+                    self.publish_path()
+                    
+                except Exception as err:
+                    rospy.logerr(err)
+            
+            elif self.not_reached:
                 self.publish_path()
                 
-            except Exception as err:
-                rospy.logerr(err)
-        elif self.collision():
-            try:
-                rospy.loginfo('Path Planner Called')
-                self.path_points = self.path_planner.get_path(Node(self.position.x, self.position.y), Node(self.goal.x, self.goal.y), self.linestrings, 10000)
-                rospy.loginfo('Path planned from %f, %f to %f, %f', self.position.x, self.position.y, self.goal.x, self.goal.y)
+            else :
                 self.publish_path()
-                
-            except Exception as err:
-                rospy.logerr(err)
-        
-        elif self.not_reached:
-            self.publish_path()
-            
-        else :
-            self.publish_path()
-            rospy.loginfo("-"*10 + 'End-Reached' + '-'*10)
-            
+                rospy.loginfo("-"*10 + 'End-Reached' + '-'*10)
         
 
     def publish_path(self):
@@ -174,11 +192,13 @@ class Manager():
         '''
             Used to convert from (r, theta) to (x, y)
         '''
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        point = self.transformedPoint(Point(x, y, 0))
+        x1 = (r) * np.cos(theta)
+        y1 = (r) * np.sin(theta)
+        point1 = self.transformedPoint(Point(x1, y1, 0))
+        
         #print(point.x, point.y)
-        return point
+        return point1
+
 
     ###----------------------------------------Dealing with transforms--------------------------------------###
     def transformedPoint(self, point):
@@ -206,9 +226,7 @@ if __name__ == '__main__':
     
     # Manager Instance
     manager = Manager()
-    
-    manager.start = Point(0, 0, 0)
-    manager.goal = Point(5, 5, 0)
+
     rospy.loginfo('Manager Initiated')
     rospy.spin()
 
