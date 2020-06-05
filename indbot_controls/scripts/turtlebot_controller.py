@@ -11,7 +11,7 @@ from collections import namedtuple
 Orientation = namedtuple('Orientation', ['roll', 'pitch', 'yaw'])
 Gains = namedtuple('Gains', ['kp', 'kd', 'ki'])
 
-DISTMIN = 0.05
+DISTMIN = 0.1
 MAXX = 0.22
 MAXANG = 2
 DIST_THRES = 0.1
